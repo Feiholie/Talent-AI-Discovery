@@ -31,23 +31,33 @@ export class RedditConnector implements CandidateConnector {
       email: raw.email || undefined,
       phone: raw.phone || undefined,
       telegram: raw.telegram || undefined,
-      skills: Array.isArray(raw.skills) ? raw.skills : raw.skills ? [raw.skills] : [],
+      skills: Array.isArray(raw.skills)
+        ? raw.skills
+        : raw.skills
+        ? [raw.skills]
+        : [],
       sourceName: "Reddit",
       sourceUrl: raw.sourceUrl || "https://reddit.com",
       postedAt: raw.postedAt || new Date().toISOString().split("T")[0],
     };
   }
 
-public async search(query: string, parsedQueries?: string[]): Promise<CandidateResult[]> {
-  if (!this.apiKey) {
-    console.warn("RedditConnector: GEMINI_API_KEY missing.");
-    return [];
-  }
+  public async search(
+    query: string,
+    parsedQueries?: string[]
+  ): Promise<CandidateResult[]> {
+    if (!this.apiKey) {
+      console.warn("RedditConnector: GEMINI_API_KEY missing.");
+      return [];
+    }
+
     try {
       const ai = new GoogleGenAI({ apiKey: this.apiKey });
-      const searchTarget = parsedQueries && parsedQueries.length > 0
-        ? parsedQueries.filter(q => q.includes("reddit")).join(" OR ")
-        : `site:reddit.com/r/forhire "looking for work" "${query}"`;
+
+      const searchTarget =
+        parsedQueries && parsedQueries.length > 0
+          ? parsedQueries.filter((q) => q.includes("reddit")).join(" OR ")
+          : `site:reddit.com/r/forhire "looking for work" "${query}"`;
 
       const systemInstruction = `You are a recruitment search system specialized in Reddit.
 Extract posts of candidates looking for hire or offering services.
@@ -76,18 +86,26 @@ DO NOT fabricate contact information or URLs.`;
                 telegram: { type: Type.STRING },
                 sourceUrl: { type: Type.STRING },
                 postedAt: { type: Type.STRING },
-                skills: { type: Type.ARRAY, items: { type: Type.STRING } }
+                skills: { type: Type.ARRAY, items: { type: Type.STRING } },
               },
-              required: ["name", "jobTitle", "location", "summary", "sourceUrl", "postedAt"]
-            }
-          }
-        }
+              required: [
+                "name",
+                "jobTitle",
+                "location",
+                "summary",
+                "sourceUrl",
+                "postedAt",
+              ],
+            },
+          },
+        },
       });
 
       const items: any[] = JSON.parse(response.text || "[]");
-      return items.map(item => this.normalize(item));
+      return items.map((item) => this.normalize(item));
     } catch (err) {
-    console.error("RedditConnector error:", err);
-    return [];
-}
+      console.error("RedditConnector error:", err);
+      return [];
+    }
   }
+}
