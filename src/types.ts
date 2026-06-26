@@ -12,6 +12,8 @@ export interface CandidateResult {
   email?: string;
   phone?: string;
   telegram?: string;
+  linkedin?: string;
+  skills?: string[];
   sourceName: string;
   sourceUrl: string;
   postedAt: string; // ISO date or formatted date string

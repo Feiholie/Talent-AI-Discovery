@@ -10,6 +10,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { parseSearchIntent, runSourcedSearch } from "./src/connectors/orchestrator";
 import { SearchHistoryItem, FavoriteCandidate, CandidateResult } from "./src/types";
+import { getRegisteredConnectors } from "./src/connectors";
 
 // Load environment variables
 dotenv.config();
@@ -189,8 +190,39 @@ async function startServer() {
       totalSearches: userHistory.length,
       totalFavorites: userFavorites.length,
       recentSearchesCount: Math.min(5, userHistory.length),
-      supportedConnectors: ["LinkedIn", "Reddit", "Twitter/X", "GitHub"]
+      supportedConnectors: ["LinkedIn", "Reddit", "Twitter/X"]
     });
+  });
+
+  // API Route: Connectors Health Status Report
+  app.get("/api/connectors/health", async (req, res) => {
+    try {
+      const connectors = getRegisteredConnectors();
+      const report = await Promise.all(
+        connectors.map(async (connector) => {
+          const startTime = Date.now();
+          const isHealthy = await connector.healthCheck();
+          const duration = Date.now() - startTime;
+          return {
+            name: connector.name,
+            enabled: connector.enabled,
+            healthy: isHealthy,
+            latencyMs: duration,
+            status: isHealthy ? "ACTIVE" : "MISSING_API_KEY",
+            lastChecked: new Date().toISOString()
+          };
+        })
+      );
+      res.json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        geminiApiKeyConfigured: !!process.env.GEMINI_API_KEY,
+        connectors: report
+      });
+    } catch (err: any) {
+      console.error("Health report generation failed:", err);
+      res.status(500).json({ error: "Failed to generate health report", details: err.message });
+    }
   });
 
   // Vite Integration

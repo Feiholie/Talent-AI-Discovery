@@ -5,6 +5,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { CandidateResult } from "../types";
+import { executeSearchOrchestration } from "../services/searchOrchestrator";
 
 let aiClient: GoogleGenAI | null = null;
 
@@ -84,85 +85,10 @@ Return a JSON object with:
 
 export async function runSourcedSearch(prompt: string, searchQueries: string[]): Promise<CandidateResult[]> {
   try {
-    const ai = getAIClient();
-    const searchTarget = searchQueries.join(" OR ");
-    const systemInstruction = `You are a recruitment search engine. You will be provided with Google Search results (via search grounding) for public posts, tweets, or profiles of individuals actively seeking jobs or work.
-Extract and compile a list of up to 10 actual, unique candidates seeking employment matching the queries.
-
-CRITICAL INSTRUCTIONS:
-- ONLY extract candidate information that is publicly and explicitly stated in the source text.
-- Never invent names, summaries, or details.
-- Never fabricate email addresses, WhatsApp numbers, phone numbers, or telegram handles.
-- If contact information is not explicitly present in the post, set the field to empty/undefined (do NOT fabricate).
-- Provide a valid post URL for each candidate.
-- Format the results into a valid JSON array matching the provided schema.`;
-
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: `Search targets: ${searchTarget}. Discover and extract candidates from LinkedIn, Reddit, or Twitter/X who match this criteria: ${prompt}.`,
-      config: {
-        systemInstruction,
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              id: { type: Type.STRING, description: "A unique slug or hash ID based on URL or name" },
-              name: { type: Type.STRING, description: "Candidate's public name, or username/handle if name is not public" },
-              jobTitle: { type: Type.STRING, description: "Candidate's desired job title or current role" },
-              location: { type: Type.STRING, description: "Location or remote preference" },
-              summary: { type: Type.STRING, description: "Concise summary of their skills, experience, and what they are looking for" },
-              email: { type: Type.STRING, description: "Public email address if explicitly mentioned in post" },
-              phone: { type: Type.STRING, description: "Public phone or WhatsApp number if explicitly mentioned" },
-              telegram: { type: Type.STRING, description: "Public telegram handle if explicitly mentioned" },
-              sourceName: { type: Type.STRING, description: "Source platform, e.g. 'Reddit', 'LinkedIn', 'Twitter/X'" },
-              sourceUrl: { type: Type.STRING, description: "URL to the original public post or profile" },
-              postedAt: { type: Type.STRING, description: "ISO date format (YYYY-MM-DD) or relative time if date is not clear" },
-            },
-            required: ["id", "name", "jobTitle", "location", "summary", "sourceName", "sourceUrl", "postedAt"],
-          },
-        },
-      },
-    });
-
-    const rawCandidates: CandidateResult[] = JSON.parse(response.text || "[]");
-
-    // Deduplicate candidates by sourceUrl or name
-    const seenUrls = new Set<string>();
-    const seenNames = new Set<string>();
-    const candidates = rawCandidates.filter((c) => {
-      if (!c) return false;
-      const url = (c.sourceUrl || "").trim().toLowerCase();
-      const name = (c.name || "").trim().toLowerCase();
-      if (url && seenUrls.has(url)) return false;
-      if (name && seenNames.has(name)) return false;
-      if (url) seenUrls.add(url);
-      if (name) seenNames.add(name);
-      return true;
-    });
-
-    // Clean up IDs and filter any empty records
-    return candidates.map((c, idx) => {
-      // Ensure there is a unique ID
-      const cleanedId = c.id && c.id.match(/^[a-zA-Z0-9_\-]+$/) ? c.id : `c_${Date.now()}_${idx}`;
-      return {
-        id: cleanedId,
-        name: c.name || "Anonymous Candidate",
-        jobTitle: c.jobTitle || "Job Seeker",
-        location: c.location || "Worldwide",
-        summary: c.summary || "No details provided.",
-        email: c.email || undefined,
-        phone: c.phone || undefined,
-        telegram: c.telegram || undefined,
-        sourceName: c.sourceName || "Public Source",
-        sourceUrl: c.sourceUrl || "https://google.com",
-        postedAt: c.postedAt || new Date().toISOString().split("T")[0],
-      };
-    });
+    const result = await executeSearchOrchestration(prompt, "u_default", searchQueries);
+    return result.candidates;
   } catch (error) {
-    console.error("Error during web search grounding with Gemini:", error);
+    console.error("Error during search orchestration execution:", error);
     return getFallbackMockCandidates(prompt);
   }
 }
