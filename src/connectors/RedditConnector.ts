@@ -38,12 +38,11 @@ export class RedditConnector implements CandidateConnector {
     };
   }
 
-  public async search(query: string, parsedQueries?: string[]): Promise<CandidateResult[]> {
-    if (!this.apiKey) {
-      console.warn("RedditConnector: GEMINI_API_KEY missing, using fallback.");
-      return this.getFallbackData(query);
-    }
-
+public async search(query: string, parsedQueries?: string[]): Promise<CandidateResult[]> {
+  if (!this.apiKey) {
+    console.warn("RedditConnector: GEMINI_API_KEY missing.");
+    return [];
+  }
     try {
       const ai = new GoogleGenAI({ apiKey: this.apiKey });
       const searchTarget = parsedQueries && parsedQueries.length > 0
@@ -88,35 +87,7 @@ DO NOT fabricate contact information or URLs.`;
       const items: any[] = JSON.parse(response.text || "[]");
       return items.map(item => this.normalize(item));
     } catch (err) {
-      console.error("RedditConnector error:", err);
-      return this.getFallbackData(query);
-    }
-  }
-
-  private getFallbackData(query: string): CandidateResult[] {
-    const candidates: CandidateResult[] = [
-      {
-        id: "re_fallback_1",
-        name: "Siti Rahma",
-        jobTitle: "HR Generalist & Recruiter",
-        location: "Bandung (Open to Remote)",
-        summary: "Extensive background in onboarding, managing employer branding campaigns, and screening candidates for high-growth startups.",
-        email: "siti.rahma.careers@outlook.com",
-        telegram: "@sitirahma_recruiter",
-        skills: ["Onboarding", "Employer Branding", "Screening"],
-        sourceName: "Reddit",
-        sourceUrl: "https://reddit.com/r/indonesiajobs/comments/hr_generalist_looking_for_role_bandung",
-        postedAt: "2026-06-24T09:15:00Z",
-      }
-    ];
-
-    const norm = query.toLowerCase();
-    return candidates.filter(c => 
-      c.name.toLowerCase().includes(norm) ||
-      c.jobTitle.toLowerCase().includes(norm) ||
-      c.location.toLowerCase().includes(norm) ||
-      c.summary.toLowerCase().includes(norm) ||
-      (c.skills && c.skills.some(s => s.toLowerCase().includes(norm)))
-    );
-  }
+    console.error("RedditConnector error:", err);
+    return [];
 }
+  }
