@@ -1,0 +1,12 @@
+{
+  "users": [
+    {
+      "id": "u_default",
+      "email": "steffiholiea2b@gmail.com",
+      "name": "Steffi Holiea",
+      "password": "password"
+    }
+  ],
+  "favorites": [],
+  "search_history": []
+}
